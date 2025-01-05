@@ -2,9 +2,7 @@
 
 #include <juce_audio_basics/juce_audio_basics.h>
 
-LumatoneInterpreterProcessor::LumatoneInterpreterProcessor()
-: AudioProcessor (getBusesProperties()), m_assigner (juce::MPEZone (juce::MPEZone::Type::lower, 15))
-{}
+LumatoneInterpreterProcessor::LumatoneInterpreterProcessor() : AudioProcessor (getBusesProperties()) {}
 
 bool LumatoneInterpreterProcessor::isBusesLayoutSupported (const BusesLayout&) const
 {
@@ -25,12 +23,13 @@ void LumatoneInterpreterProcessor::processBlock (juce::AudioBuffer<float>& audio
     juce::MidiBuffer midiOut;
     for (auto event : midiMessages) {
         if (event.getMessage().isNoteOn()) {
-            auto note = event.getMessage().getNoteNumber();
-            auto channel = event.getMessage().getChannel();
+            auto noteIn = event.getMessage().getNoteNumber();
+            auto channelIn = event.getMessage().getChannel();
             auto velocity = event.getMessage().getVelocity();
 
-            auto [noteOut, bendOut] = lumaNoteToMidiNote (channel, note);
-            auto chOut = m_assigner.findMidiChannelForNewNote (noteOut);
+            auto [noteOut, bendOut] = lumaNoteToMidiNote (channelIn, noteIn);
+            auto chOut = allocateChannel (channelIn, noteIn);
+
             midiOut.addEvent (
                 juce::MidiMessage::pitchWheel (
                     chOut, std::clamp ((int) std::round (16383.0f * ((bendOut / 48.0f) / 2.0f + 0.5f)), 0, 16383)),
@@ -39,22 +38,25 @@ void LumatoneInterpreterProcessor::processBlock (juce::AudioBuffer<float>& audio
             midiOut.addEvent (juce::MidiMessage::noteOn (chOut, noteOut, velocity), event.samplePosition);
         }
         else if (event.getMessage().isNoteOff()) {
-            int note = event.getMessage().getNoteNumber();
-            int channel = event.getMessage().getChannel();
+            int noteIn = event.getMessage().getNoteNumber();
+            int channelIn = event.getMessage().getChannel();
 
-            auto [noteOut, bendOut] = lumaNoteToMidiNote (channel, note);
-            auto chOut = m_assigner.findMidiChannelForExistingNote (noteOut);
-            midiOut.addEvent (juce::MidiMessage::noteOff (chOut, noteOut), event.samplePosition);
+            auto [noteOut, bendOut] = lumaNoteToMidiNote (channelIn, noteIn);
+            auto chOut = deallocateChannel (channelIn, noteIn);
+
+            if (chOut != -1)
+                midiOut.addEvent (juce::MidiMessage::noteOff (chOut, noteOut), event.samplePosition);
         }
         else if (event.getMessage().isAftertouch()) {
             // To channel pressure
-            int channel = event.getMessage().getChannel();
+            int channelIn = event.getMessage().getChannel();
+            int noteIn = event.getMessage().getNoteNumber();
             int pressure = event.getMessage().getAfterTouchValue();
-            int note = event.getMessage().getNoteNumber();
 
-            auto [noteOut, bendOut] = lumaNoteToMidiNote (channel, note);
-            auto chOut = m_assigner.findMidiChannelForExistingNote (noteOut);
-            midiOut.addEvent (juce::MidiMessage::channelPressureChange (chOut, pressure), event.samplePosition);
+            if (auto found = m_noteToChannel.find ({channelIn, noteIn}); found != m_noteToChannel.end()) {
+                auto chOut = found->second;
+                midiOut.addEvent (juce::MidiMessage::channelPressureChange (chOut, pressure), event.samplePosition);
+            }
         }
         else {
             midiOut.addEvent (event.getMessage(), event.samplePosition);
@@ -62,6 +64,60 @@ void LumatoneInterpreterProcessor::processBlock (juce::AudioBuffer<float>& audio
     }
 
     midiMessages.swapWith (midiOut);
+}
+
+int LumatoneInterpreterProcessor::allocateChannel (int ch, int note)
+{
+    auto noteId = m_nextNoteId++;
+    // Use the same channel for exactly the same note (lumatone-wise)
+    if (auto found = m_noteToChannel.find ({ch, note}); found != m_noteToChannel.end()) {
+        return found->second;
+    }
+
+    // Look for the least recently used free channel
+    int channel = -1;
+    int lruId = INT_MAX;
+    for (int i = 1; i < 16; ++i) {
+        if (m_notesPerChannel[i] == 0) {
+            if (m_channelLru[i] < lruId) {
+                lruId = m_channelLru[i];
+                channel = i;
+            }
+        }
+    }
+    if (channel != -1) {
+        m_noteToChannel[{ch, note}] = channel;
+        m_notesPerChannel[channel]++;
+        m_channelLru[channel] = noteId;
+        return channel;
+    }
+
+    // Otherwise, use the least recently used channel with the fewest notes
+    int minNotes = INT_MAX;
+    for (int i = 1; i < 16; ++i) {
+        if (m_notesPerChannel[i] < minNotes || (m_notesPerChannel[i] == minNotes && m_channelLru[i] < lruId)) {
+            minNotes = m_notesPerChannel[i];
+            lruId = m_channelLru[i];
+            channel = i;
+        }
+    }
+
+    jassert (channel != -1);
+    m_noteToChannel[{ch, note}] = channel;
+    m_notesPerChannel[channel]++;
+    m_channelLru[channel] = noteId;
+    return channel;
+}
+
+int LumatoneInterpreterProcessor::deallocateChannel (int ch, int note)
+{
+    if (auto found = m_noteToChannel.find ({ch, note}); found != m_noteToChannel.end()) {
+        auto channel = found->second;
+        m_notesPerChannel[channel]--;
+        m_noteToChannel.erase (found);
+        return channel;
+    }
+    return -1;
 }
 
 std::pair<int, float> LumatoneInterpreterProcessor::lumaNoteToMidiNote (int ch, int note) const

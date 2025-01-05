@@ -2,6 +2,16 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
+// hash for std::pair
+namespace std
+{
+template <typename T, typename U>
+struct hash<std::pair<T, U>>
+{
+    size_t operator() (const std::pair<T, U>& p) const { return std::hash<T> {}(p.first) ^ std::hash<U> {}(p.second); }
+};
+} // namespace std
+
 /** As the name suggest, this class does the actual audio processing. */
 class LumatoneInterpreterProcessor : public juce::AudioProcessor
 {
@@ -41,7 +51,13 @@ private:
     std::pair<int, float> lumaNoteToMidiNote (int ch, int note) const;
     std::pair<int, int> lumaNoteToLocalCoord (int note) const;
 
-    juce::MPEChannelAssigner m_assigner;
+    int m_nextNoteId = 0;
+    std::unordered_map<int, int> m_channelLru;
+    std::unordered_map<std::pair<int, int>, int> m_noteToChannel;
+    std::unordered_map<int, int> m_notesPerChannel;
+
+    int allocateChannel (int ch, int note);
+    int deallocateChannel (int ch, int note);
 
     friend class LumatoneInterpreterEditor;
 
