@@ -7,17 +7,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 project(LUMATONE_INTERPRETER VERSION 0.0.1)
 
 include(cmake/CPM.cmake)
-CPMAddPackage(
-    GITHUB_REPOSITORY "soundradix/cmake"
-    GIT_TAG "d5624f645a1e66c509de1958fdd8c1be8cae816a"
-    DOWNLOAD_ONLY
-)
-list(APPEND CMAKE_MODULE_PATH "${cmake_SOURCE_DIR}")
-include(SRUtils)
 
 CPMAddPackage(
-    GITHUB_REPOSITORY "soundradix/JUCE"
-    GIT_TAG "7da7882633c53cbcdbd6c2438d41eef564743841"
+    GITHUB_REPOSITORY "juce-framework/JUCE"
+    GIT_TAG "8.0.4"
     OPTIONS "JUCE_ENABLE_MODULE_SOURCE_GROUPS ON"
 )
 
@@ -42,11 +35,11 @@ juce_add_plugin(${PLUGIN_TARGET}
     EDITOR_WANTS_KEYBOARD_FOCUS TRUE
     STATUS_BAR_HIDDEN TRUE
     FILE_SHARING_ENABLED TRUE
-    COPY_PLUGIN_AFTER_BUILD ${SR_COPY_PLUGIN_AFTER_BUILD}
-    PLUGIN_MANUFACTURER_CODE Srdx               # A four-character manufacturer id with at least one upper-case character
+    COPY_PLUGIN_AFTER_BUILD FALSE
+    PLUGIN_MANUFACTURER_CODE Lqui               # A four-character manufacturer id with at least one upper-case character
     PLUGIN_CODE Ltct                            # A unique four-character plugin id with exactly one upper-case character
                                                 # GarageBand 10.3 requires the first letter to be upper-case, and the remaining letters to be lower-case
-    FORMATS Standalone;AUv3
+    FORMATS Standalone;VST3;AUv3
     PRODUCT_NAME "Lumatone Interpreter")                    # The name of the final executable, which can differ from the target name
 
 target_include_directories(${PLUGIN_TARGET}
@@ -63,8 +56,6 @@ set(standalone_sources
     Source/Main.cpp
 )
 
-sr_disable_warnings_in_juce_modules("${JUCE_SOURCE_DIR}")
-
 target_sources(${PLUGIN_TARGET}
     PRIVATE
         ${shared_sources}
@@ -77,7 +68,9 @@ target_sources(${PLUGIN_TARGET}_Standalone
 
 target_compile_definitions(${PLUGIN_TARGET}
     PUBLIC
-        "${SR_PLUGIN_TARGET_COMPILE_DEFINITIONS}"
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+        JUCE_STRICT_REFCOUNTEDPOINTER=1
         JUCE_VST3_CAN_REPLACE_VST2=0
         JUCE_MODAL_LOOPS_PERMITTED=1
         _USE_MATH_DEFINES=1
@@ -103,6 +96,5 @@ target_link_libraries(${PLUGIN_TARGET}
         juce::juce_gui_basics
     PUBLIC
         juce::juce_recommended_config_flags
-        sr::sr_recommended_warning_flags
         -Werror=return-type
 )
