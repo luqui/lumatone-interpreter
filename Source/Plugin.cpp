@@ -125,17 +125,17 @@ std::pair<int, float> LumatoneInterpreterProcessor::lumaNoteToMidiNote (int ch, 
     int x, y;
     std::tie (x, y) = lumaNoteToLocalCoord (note);
 
-    x += 5 * ch;
-    y += 2 * ch;
+    x += 5 * (ch - 1);
+    y += 2 * (ch - 1);
 
-    // And re-center so the middle is (0,0)  (board 2, coord (0, 5))
-    x -= 5 * 2;
-    y -= 2 * 2 - 5;
+    // And re-center so the middle is (10,9)
+    x -= 10;
+    y -= 9;
 
     // This is the tuning computation
     float a = std::pow (2.0f, 5.0f / 31.0f);
     float b = std::pow (2.0f, 3.0f / 31.0f);
-    float hz = 130.815f * std::pow (a, x) * std::pow (b, y);
+    float hz = 261.62f * std::pow (a, x) * std::pow (b, y);
 
     float midiNote = 12.0f * std::log2 (hz / 440.0f) + 69.0f;
     int midiNoteOut = std::clamp ((int) std::round (midiNote), 0, 127);
