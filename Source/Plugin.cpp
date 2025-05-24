@@ -22,10 +22,41 @@ void LumatoneInterpreterProcessor::processBlock (juce::AudioBuffer<float>& audio
 
     juce::MidiBuffer midiOut;
     for (auto event : midiMessages) {
-        if (event.getMessage().isNoteOn()) {
-            auto noteIn = event.getMessage().getNoteNumber();
-            auto channelIn = event.getMessage().getChannel();
-            auto velocity = event.getMessage().getVelocity();
+        juce::MidiMessage message = event.getMessage();
+
+        if (message.getChannel() == 1) {
+            // Pass through for things like pitch bend, program change
+            midiOut.addEvent (message, event.samplePosition);
+            continue;
+        }
+
+        int initialPressure = 0;
+        if (message.isController()) {
+            if (message.getControllerValue() == 0) {
+                message = juce::MidiMessage::noteOff (message.getChannel(), message.getControllerNumber());
+            }
+            else {
+                if (auto found = m_noteToChannel.find ({message.getChannel(), message.getControllerNumber()});
+                    found != m_noteToChannel.end()) {
+                    message = juce::MidiMessage::aftertouchChange (
+                        message.getChannel(), message.getControllerNumber(), message.getControllerValue());
+                }
+                else {
+                    // As an approximation of velocity, we treat the first nonzero controller value as the note-on
+                    // velocity. Let's see if it works.
+                    initialPressure = message.getControllerValue();
+                    message = juce::MidiMessage::noteOn (
+                        message.getChannel(),
+                        message.getControllerNumber(),
+                        (juce::uint8) message.getControllerValue());
+                }
+            }
+        }
+
+        if (message.isNoteOn()) {
+            auto noteIn = message.getNoteNumber();
+            auto channelIn = message.getChannel();
+            auto velocity = message.getVelocity();
 
             auto [noteOut, bendOut] = lumaNoteToMidiNote (channelIn, noteIn);
             auto chOut = allocateChannel (channelIn, noteIn);
@@ -34,32 +65,30 @@ void LumatoneInterpreterProcessor::processBlock (juce::AudioBuffer<float>& audio
                 juce::MidiMessage::pitchWheel (
                     chOut, std::clamp ((int) std::round (16383.0f * ((bendOut / 48.0f) / 2.0f + 0.5f)), 0, 16383)),
                 event.samplePosition);
-            midiOut.addEvent (juce::MidiMessage::channelPressureChange (chOut, 0), event.samplePosition);
+            midiOut.addEvent (juce::MidiMessage::channelPressureChange (chOut, initialPressure), event.samplePosition);
             midiOut.addEvent (juce::MidiMessage::noteOn (chOut, noteOut, velocity), event.samplePosition);
         }
-        else if (event.getMessage().isNoteOff()) {
-            int noteIn = event.getMessage().getNoteNumber();
-            int channelIn = event.getMessage().getChannel();
+        else if (message.isNoteOff()) {
+            int noteIn = message.getNoteNumber();
+            int channelIn = message.getChannel();
 
             auto [noteOut, bendOut] = lumaNoteToMidiNote (channelIn, noteIn);
             auto chOut = deallocateChannel (channelIn, noteIn);
 
-            if (chOut != -1)
+            if (chOut != -1) {
                 midiOut.addEvent (juce::MidiMessage::noteOff (chOut, noteOut), event.samplePosition);
+            }
         }
-        else if (event.getMessage().isAftertouch()) {
+        else if (message.isAftertouch()) {
             // To channel pressure
-            int channelIn = event.getMessage().getChannel();
-            int noteIn = event.getMessage().getNoteNumber();
-            int pressure = event.getMessage().getAfterTouchValue();
+            int channelIn = message.getChannel();
+            int noteIn = message.getNoteNumber();
+            int pressure = message.getAfterTouchValue();
 
             if (auto found = m_noteToChannel.find ({channelIn, noteIn}); found != m_noteToChannel.end()) {
                 auto chOut = found->second;
                 midiOut.addEvent (juce::MidiMessage::channelPressureChange (chOut, pressure), event.samplePosition);
             }
-        }
-        else {
-            midiOut.addEvent (event.getMessage(), event.samplePosition);
         }
     }
 
@@ -125,8 +154,8 @@ std::pair<int, float> LumatoneInterpreterProcessor::lumaNoteToMidiNote (int ch, 
     int x, y;
     std::tie (x, y) = lumaNoteToLocalCoord (note);
 
-    x += 5 * (ch - 1);
-    y += 2 * (ch - 1);
+    x += 5 * (ch - 2);
+    y += 2 * (ch - 2);
 
     // And re-center so the middle is (10,9)
     x -= 10;
