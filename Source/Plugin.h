@@ -45,6 +45,8 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
+    int getActiveVoices() const { return m_noteToChannel.size(); }
+
 private:
     static BusesProperties getBusesProperties();
 

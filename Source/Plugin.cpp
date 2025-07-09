@@ -1,5 +1,7 @@
 #include "Plugin.h"
 
+#include "Editor.h"
+
 #include <juce_audio_basics/juce_audio_basics.h>
 
 LumatoneInterpreterProcessor::LumatoneInterpreterProcessor() : AudioProcessor (getBusesProperties()) {}
@@ -333,7 +335,7 @@ bool LumatoneInterpreterProcessor::hasEditor() const
 
 juce::AudioProcessorEditor* LumatoneInterpreterProcessor::createEditor()
 {
-    return new juce::GenericAudioProcessorEditor (*this);
+    return new LumatoneInterpreterEditor (*this);
 }
 
 const juce::String LumatoneInterpreterProcessor::getName() const
