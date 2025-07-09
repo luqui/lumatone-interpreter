@@ -50,6 +50,7 @@ private:
 
     std::pair<int, float> lumaNoteToMidiNote (int ch, int note) const;
     std::pair<int, int> lumaNoteToLocalCoord (int note) const;
+    int velocityFixup (int ch, int note, int vel) const;
 
     int m_nextNoteId = 0;
     std::unordered_map<int, int> m_channelLru;

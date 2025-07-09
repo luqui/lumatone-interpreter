@@ -60,6 +60,7 @@ void LumatoneInterpreterProcessor::processBlock (juce::AudioBuffer<float>& audio
 
             auto [noteOut, bendOut] = lumaNoteToMidiNote (channelIn, noteIn);
             auto chOut = allocateChannel (channelIn, noteIn);
+            velocity = velocityFixup (channelIn, noteIn, velocity);
 
             midiOut.addEvent (
                 juce::MidiMessage::pitchWheel (
@@ -149,10 +150,38 @@ int LumatoneInterpreterProcessor::deallocateChannel (int ch, int note)
     return -1;
 }
 
+int LumatoneInterpreterProcessor::velocityFixup (int ch, int note, int vel) const
+{
+    int x, y;
+    std::tie (x, y) = lumaNoteToLocalCoord (note);
+
+    auto powScale = [&] (float pow) {
+        int out = (int) std::round (std::pow (vel / 127.0f, pow) * 127.0f);
+        std::cout << "Fixing up velocity from " << vel << " to " << out << std::endl;
+        return out;
+    };
+
+    if (ch == 3 && x == 1 && y == 7) {
+        return powScale (1.849f);
+    }
+    else if (ch == 4 && x == -2 && y == 5) {
+        return powScale (0.495f);
+    }
+    else if (ch == 4 && x == 3 && y == 5) {
+        return powScale (0.784f);
+    }
+    else if (ch == 4 && x == 3 && y == 4) {
+        return powScale (0.5185f);
+    }
+    else
+        return vel;
+}
+
 std::pair<int, float> LumatoneInterpreterProcessor::lumaNoteToMidiNote (int ch, int note) const
 {
     int x, y;
     std::tie (x, y) = lumaNoteToLocalCoord (note);
+    std::cout << "Coord = ch " << ch << ": " << x << ", " << y << std::endl;
 
     x += 5 * (ch - 2);
     y += 2 * (ch - 2);
