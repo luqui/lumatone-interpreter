@@ -106,7 +106,7 @@ int LumatoneInterpreterProcessor::allocateChannel (int ch, int note)
     // Look for the least recently used free channel
     int channel = -1;
     int lruId = INT_MAX;
-    for (int i = 1; i < 16; ++i) {
+    for (int i = 2; i < 16; ++i) {
         if (m_notesPerChannel[i] == 0) {
             if (m_channelLru[i] < lruId) {
                 lruId = m_channelLru[i];
@@ -123,7 +123,7 @@ int LumatoneInterpreterProcessor::allocateChannel (int ch, int note)
 
     // Otherwise, use the least recently used channel with the fewest notes
     int minNotes = INT_MAX;
-    for (int i = 1; i < 16; ++i) {
+    for (int i = 2; i < 16; ++i) {
         if (m_notesPerChannel[i] < minNotes || (m_notesPerChannel[i] == minNotes && m_channelLru[i] < lruId)) {
             minNotes = m_notesPerChannel[i];
             lruId = m_channelLru[i];
