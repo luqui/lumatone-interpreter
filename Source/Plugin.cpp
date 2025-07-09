@@ -162,8 +162,14 @@ std::pair<int, float> LumatoneInterpreterProcessor::lumaNoteToMidiNote (int ch, 
     y -= 9;
 
     // This is the tuning computation
-    float a = std::pow (2.0f, 5.0f / 31.0f);
-    float b = std::pow (2.0f, 3.0f / 31.0f);
+    // 31EDO
+    // float a = std::pow (2.0f, 5.0f / 31.0f);
+    // float b = std::pow (2.0f, 3.0f / 31.0f);
+
+    // 31-esque regression
+    float a = 1.11794216f;
+    float b = 1.07109905f;
+
     float hz = 261.62f * std::pow (a, x) * std::pow (b, y);
 
     float midiNote = 12.0f * std::log2 (hz / 440.0f) + 69.0f;
