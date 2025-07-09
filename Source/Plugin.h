@@ -12,6 +12,9 @@ struct hash<std::pair<T, U>>
 };
 } // namespace std
 
+// Forward declaration for the velocity fixup editor
+class VelocityFixupEditor;
+
 /** As the name suggest, this class does the actual audio processing. */
 class LumatoneInterpreterProcessor : public juce::AudioProcessor
 {
@@ -47,6 +50,13 @@ public:
 
     int getActiveVoices() const { return m_noteToChannel.size(); }
 
+    // Velocity fixup functionality
+    std::pair<int, int> getMostRecentKey() const { return m_mostRecentKey; }
+    float getVelocityFixup (int ch, int note) const;
+    void setVelocityFixup (int ch, int note, float powerValue);
+    void saveVelocityFixups();
+    void loadVelocityFixups();
+
 private:
     static BusesProperties getBusesProperties();
 
@@ -59,10 +69,16 @@ private:
     std::unordered_map<std::pair<int, int>, int> m_noteToChannel;
     std::unordered_map<int, int> m_notesPerChannel;
 
+    // Velocity fixup data
+    std::unordered_map<std::pair<int, int>, float> m_velocityFixups;
+    std::pair<int, int> m_mostRecentKey {0, 0};
+    juce::File m_velocityFixupFile;
+
     int allocateChannel (int ch, int note);
     int deallocateChannel (int ch, int note);
 
     friend class LumatoneInterpreterEditor;
+    friend class VelocityFixupEditor;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LumatoneInterpreterProcessor)
 };

@@ -50,6 +50,8 @@ target_include_directories(${PLUGIN_TARGET}
 set(shared_sources
     Source/Plugin.h
     Source/Plugin.cpp
+    Source/VelocityFixupEditor.h
+    Source/VelocityFixupEditor.cpp
 )
 
 set(standalone_sources

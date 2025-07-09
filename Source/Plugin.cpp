@@ -4,7 +4,18 @@
 
 #include <juce_audio_basics/juce_audio_basics.h>
 
-LumatoneInterpreterProcessor::LumatoneInterpreterProcessor() : AudioProcessor (getBusesProperties()) {}
+LumatoneInterpreterProcessor::LumatoneInterpreterProcessor() : AudioProcessor (getBusesProperties())
+{
+    // Initialize the velocity fixup file path
+    auto appDataDir = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory);
+    auto lumatoneDir = appDataDir.getChildFile ("LumatoneInterpreter");
+    if (! lumatoneDir.exists())
+        lumatoneDir.createDirectory();
+
+    m_velocityFixupFile = lumatoneDir.getChildFile ("velocity_fixups.xml");
+
+    loadVelocityFixups();
+}
 
 bool LumatoneInterpreterProcessor::isBusesLayoutSupported (const BusesLayout&) const
 {
@@ -59,6 +70,9 @@ void LumatoneInterpreterProcessor::processBlock (juce::AudioBuffer<float>& audio
             auto noteIn = message.getNoteNumber();
             auto channelIn = message.getChannel();
             auto velocity = message.getVelocity();
+
+            // Track the most recent key
+            m_mostRecentKey = {channelIn, noteIn};
 
             auto [noteOut, bendOut] = lumaNoteToMidiNote (channelIn, noteIn);
             auto chOut = allocateChannel (channelIn, noteIn);
@@ -154,6 +168,16 @@ int LumatoneInterpreterProcessor::deallocateChannel (int ch, int note)
 
 int LumatoneInterpreterProcessor::velocityFixup (int ch, int note, int vel) const
 {
+    // Check for user-defined fixups first
+    auto key = std::make_pair (ch, note);
+    if (auto found = m_velocityFixups.find (key); found != m_velocityFixups.end()) {
+        float pow = found->second;
+        int out = (int) std::round (std::pow (vel / 127.0f, pow) * 127.0f);
+        std::cout << "Fixing up velocity from " << vel << " to " << out << " (power: " << pow << ")" << std::endl;
+        return out;
+    }
+
+    // Fallback to hardcoded fixups for backward compatibility
     int x, y;
     std::tie (x, y) = lumaNoteToLocalCoord (note);
 
@@ -386,4 +410,66 @@ juce::AudioProcessor::BusesProperties LumatoneInterpreterProcessor::getBusesProp
 juce::AudioProcessor* createPluginFilter()
 {
     return std::make_unique<LumatoneInterpreterProcessor>().release();
+}
+
+float LumatoneInterpreterProcessor::getVelocityFixup (int ch, int note) const
+{
+    auto key = std::make_pair (ch, note);
+    if (auto found = m_velocityFixups.find (key); found != m_velocityFixups.end()) {
+        return found->second;
+    }
+    return 1.0f; // Default value
+}
+
+void LumatoneInterpreterProcessor::setVelocityFixup (int ch, int note, float powerValue)
+{
+    auto key = std::make_pair (ch, note);
+    if (powerValue == 1.0f) {
+        // Remove the fixup if it's the default value
+        m_velocityFixups.erase (key);
+    }
+    else {
+        m_velocityFixups[key] = powerValue;
+    }
+    saveVelocityFixups();
+}
+
+void LumatoneInterpreterProcessor::saveVelocityFixups()
+{
+    juce::XmlElement root ("VelocityFixups");
+
+    for (const auto& [key, value] : m_velocityFixups) {
+        auto* fixupElement = root.createNewChildElement ("Fixup");
+        fixupElement->setAttribute ("channel", key.first);
+        fixupElement->setAttribute ("note", key.second);
+        fixupElement->setAttribute ("power", (double) value);
+    }
+
+    if (! root.writeTo (m_velocityFixupFile)) {
+        std::cout << "Failed to save velocity fixups to " << m_velocityFixupFile.getFullPathName() << std::endl;
+    }
+}
+
+void LumatoneInterpreterProcessor::loadVelocityFixups()
+{
+    if (! m_velocityFixupFile.exists())
+        return;
+
+    auto xml = juce::XmlDocument::parse (m_velocityFixupFile);
+    if (xml == nullptr) {
+        std::cout << "Failed to parse velocity fixups file" << std::endl;
+        return;
+    }
+
+    m_velocityFixups.clear();
+
+    for (auto* fixupElement : xml->getChildIterator()) {
+        if (fixupElement->hasTagName ("Fixup")) {
+            int channel = fixupElement->getIntAttribute ("channel");
+            int note = fixupElement->getIntAttribute ("note");
+            float power = (float) fixupElement->getDoubleAttribute ("power");
+
+            m_velocityFixups[{channel, note}] = power;
+        }
+    }
 }
