@@ -59,7 +59,7 @@ public:
 
     // Global velocity sensitivity
     float getGlobalVelocityPower() const { return m_globalVelocityPower; }
-    void setGlobalVelocityPower (float power) { m_globalVelocityPower = power; }
+    void setGlobalVelocityPower (float power);
 
 private:
     static BusesProperties getBusesProperties();

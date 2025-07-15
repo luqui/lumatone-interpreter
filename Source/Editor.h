@@ -36,7 +36,9 @@ public:
 
         // Global velocity power slider
         m_globalVelocityPowerSlider.setRange (0.1, 10.0, 0.01);
-        m_globalVelocityPowerSlider.setValue (1.0);
+        m_globalVelocityPowerSlider.setValue (
+            static_cast<LumatoneInterpreterProcessor&> (processor).getGlobalVelocityPower(),
+            juce::dontSendNotification);
         m_globalVelocityPowerSlider.setTextBoxStyle (juce::Slider::TextBoxLeft, false, 80, 20);
         m_globalVelocityPowerSlider.onValueChange = [this]() {
             auto& proc = static_cast<LumatoneInterpreterProcessor&> (processor);

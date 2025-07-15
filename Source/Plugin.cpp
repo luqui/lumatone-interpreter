@@ -417,9 +417,18 @@ void LumatoneInterpreterProcessor::setVelocityFixup (int ch, int note, float pow
     saveVelocityFixups();
 }
 
+void LumatoneInterpreterProcessor::setGlobalVelocityPower (float power)
+{
+    m_globalVelocityPower = power;
+    saveVelocityFixups();
+}
+
 void LumatoneInterpreterProcessor::saveVelocityFixups()
 {
     juce::XmlElement root ("VelocityFixups");
+    
+    // Save global velocity power setting
+    root.setAttribute ("globalVelocityPower", (double) m_globalVelocityPower);
 
     for (const auto& [key, value] : m_velocityFixups) {
         auto* fixupElement = root.createNewChildElement ("Fixup");
@@ -445,6 +454,9 @@ void LumatoneInterpreterProcessor::loadVelocityFixups()
     }
 
     m_velocityFixups.clear();
+    
+    // Load global velocity power setting
+    m_globalVelocityPower = (float) xml->getDoubleAttribute ("globalVelocityPower", 1.0);
 
     for (auto* fixupElement : xml->getChildIterator()) {
         if (fixupElement->hasTagName ("Fixup")) {
