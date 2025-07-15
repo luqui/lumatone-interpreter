@@ -18,6 +18,10 @@ public:
         filterWindow =
             std::make_unique<StandaloneFilterWindow> (getApplicationName(), juce::Colours::black, nullptr, true);
         filterWindow->setTitleBarButtonsRequired (DocumentWindow::allButtons, false);
+
+        // Set default device settings
+        setDefaultDeviceSettings();
+
         filterWindow->setVisible (true);
         filterWindow->setResizable (true, true);
     }
@@ -29,6 +33,38 @@ public:
     bool moreThanOneInstanceAllowed() override { return true; }
 
 private:
+    void setDefaultDeviceSettings()
+    {
+        if (auto* pluginHolder = filterWindow->getPluginHolder()) {
+            auto& deviceManager = pluginHolder->deviceManager;
+
+            // Set default buffer size to 64 samples
+            auto currentSetup = deviceManager.getAudioDeviceSetup();
+            currentSetup.bufferSize = 64;
+
+            // Try to set "Lumatone" as MIDI input device if available
+            auto midiInputs = MidiInput::getAvailableDevices();
+            for (const auto& input : midiInputs) {
+                if (input.name.containsIgnoreCase ("Lumatone")) {
+                    deviceManager.setMidiInputDeviceEnabled (input.identifier, true);
+                    break;
+                }
+            }
+
+            // Try to set "IAC Bus 1" as default MIDI output device if available
+            auto midiOutputs = MidiOutput::getAvailableDevices();
+            for (const auto& output : midiOutputs) {
+                if (output.name.containsIgnoreCase ("IAC Driver Bus 1")) {
+                    deviceManager.setDefaultMidiOutputDevice (output.identifier);
+                    break;
+                }
+            }
+
+            // Apply the audio device settings
+            deviceManager.setAudioDeviceSetup (currentSetup, true);
+        }
+    }
+
     std::unique_ptr<juce::StandaloneFilterWindow> filterWindow;
 };
 
