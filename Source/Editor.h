@@ -34,6 +34,19 @@ public:
         m_velocityFixupButton.onClick = [this]() { openVelocityFixupEditor(); };
         addAndMakeVisible (m_velocityFixupButton);
 
+        // Global velocity power slider
+        m_globalVelocityPowerSlider.setRange (0.1, 10.0, 0.01);
+        m_globalVelocityPowerSlider.setValue (1.0);
+        m_globalVelocityPowerSlider.setTextBoxStyle (juce::Slider::TextBoxLeft, false, 80, 20);
+        m_globalVelocityPowerSlider.onValueChange = [this]() {
+            auto& proc = static_cast<LumatoneInterpreterProcessor&> (processor);
+            proc.setGlobalVelocityPower ((float) m_globalVelocityPowerSlider.getValue());
+        };
+        addAndMakeVisible (m_globalVelocityPowerSlider);
+
+        m_globalVelocityPowerLabel.setText ("Global Velocity Power:", juce::dontSendNotification);
+        m_globalVelocityPowerLabel.attachToComponent (&m_globalVelocityPowerSlider, true);
+
         startTimerHz (10);
 
         setSize ((int) (1.618f * 400), 400);
@@ -44,6 +57,8 @@ public:
         auto bounds = getLocalBounds().reduced (8);
         m_velocityFixupButton.setBounds (bounds.removeFromTop (40));
         bounds.removeFromTop (8);
+        m_globalVelocityPowerSlider.setBounds (bounds.removeFromTop (30));
+        bounds.removeFromTop (8);
         m_activeVoicesLabel.setBounds (bounds);
     }
 
@@ -53,6 +68,9 @@ private:
         auto& proc = static_cast<LumatoneInterpreterProcessor&> (processor);
         m_activeVoicesLabel.setText (
             "Active voices: " + juce::String (proc.getActiveVoices()), juce::dontSendNotification);
+
+        // Update global velocity power slider to reflect current value
+        m_globalVelocityPowerSlider.setValue (proc.getGlobalVelocityPower(), juce::dontSendNotification);
     }
 
     void openVelocityFixupEditor()
@@ -85,5 +103,7 @@ private:
 
     juce::Label m_activeVoicesLabel;
     juce::TextButton m_velocityFixupButton;
+    juce::Slider m_globalVelocityPowerSlider;
+    juce::Label m_globalVelocityPowerLabel;
     std::unique_ptr<VelocityFixupWindow> m_velocityFixupWindow;
 };

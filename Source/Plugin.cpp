@@ -69,7 +69,7 @@ void LumatoneInterpreterProcessor::processBlock (juce::AudioBuffer<float>& audio
         if (message.isNoteOn()) {
             auto noteIn = message.getNoteNumber();
             auto channelIn = message.getChannel();
-            auto velocity = message.getVelocity();
+            auto velocity = (float) message.getVelocity();
 
             // Track the most recent key
             m_mostRecentKey = {channelIn, noteIn};
@@ -78,12 +78,18 @@ void LumatoneInterpreterProcessor::processBlock (juce::AudioBuffer<float>& audio
             auto chOut = allocateChannel (channelIn, noteIn);
             velocity = velocityFixup (channelIn, noteIn, velocity);
 
+            // Apply global velocity power curve
+            velocity = std::pow (velocity / 127.0f, m_globalVelocityPower) * 127.0f;
+
+            // Clamp and convert to int for MIDI output
+            auto velocityOut = (juce::uint8) std::clamp ((int) std::round (velocity), 1, 127);
+
             midiOut.addEvent (
                 juce::MidiMessage::pitchWheel (
                     chOut, std::clamp ((int) std::round (16383.0f * ((bendOut / 48.0f) / 2.0f + 0.5f)), 0, 16383)),
                 event.samplePosition);
             midiOut.addEvent (juce::MidiMessage::channelPressureChange (chOut, initialPressure), event.samplePosition);
-            midiOut.addEvent (juce::MidiMessage::noteOn (chOut, noteOut, velocity), event.samplePosition);
+            midiOut.addEvent (juce::MidiMessage::noteOn (chOut, noteOut, velocityOut), event.samplePosition);
         }
         else if (message.isNoteOff()) {
             int noteIn = message.getNoteNumber();
@@ -166,41 +172,18 @@ int LumatoneInterpreterProcessor::deallocateChannel (int ch, int note)
     return -1;
 }
 
-int LumatoneInterpreterProcessor::velocityFixup (int ch, int note, int vel) const
+float LumatoneInterpreterProcessor::velocityFixup (int ch, int note, int vel) const
 {
     // Check for user-defined fixups first
     auto key = std::make_pair (ch, note);
     if (auto found = m_velocityFixups.find (key); found != m_velocityFixups.end()) {
         float pow = found->second;
-        int out = (int) std::round (std::pow (vel / 127.0f, pow) * 127.0f);
+        float out = std::pow (vel / 127.0f, pow) * 127.0f;
         std::cout << "Fixing up velocity from " << vel << " to " << out << " (power: " << pow << ")" << std::endl;
         return out;
     }
 
-    // Fallback to hardcoded fixups for backward compatibility
-    int x, y;
-    std::tie (x, y) = lumaNoteToLocalCoord (note);
-
-    auto powScale = [&] (float pow) {
-        int out = (int) std::round (std::pow (vel / 127.0f, pow) * 127.0f);
-        std::cout << "Fixing up velocity from " << vel << " to " << out << std::endl;
-        return out;
-    };
-
-    if (ch == 3 && x == 1 && y == 7) {
-        return powScale (1.849f);
-    }
-    else if (ch == 4 && x == -2 && y == 5) {
-        return powScale (0.495f);
-    }
-    else if (ch == 4 && x == 3 && y == 5) {
-        return powScale (0.784f);
-    }
-    else if (ch == 4 && x == 3 && y == 4) {
-        return powScale (0.5185f);
-    }
-    else
-        return vel;
+    return (float) vel;
 }
 
 std::pair<int, float> LumatoneInterpreterProcessor::lumaNoteToMidiNote (int ch, int note) const

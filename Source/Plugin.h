@@ -57,12 +57,16 @@ public:
     void saveVelocityFixups();
     void loadVelocityFixups();
 
+    // Global velocity sensitivity
+    float getGlobalVelocityPower() const { return m_globalVelocityPower; }
+    void setGlobalVelocityPower (float power) { m_globalVelocityPower = power; }
+
 private:
     static BusesProperties getBusesProperties();
 
     std::pair<int, float> lumaNoteToMidiNote (int ch, int note) const;
     std::pair<int, int> lumaNoteToLocalCoord (int note) const;
-    int velocityFixup (int ch, int note, int vel) const;
+    float velocityFixup (int ch, int note, int vel) const;
 
     int m_nextNoteId = 0;
     std::unordered_map<int, int> m_channelLru;
@@ -73,6 +77,7 @@ private:
     std::unordered_map<std::pair<int, int>, float> m_velocityFixups;
     std::pair<int, int> m_mostRecentKey {0, 0};
     juce::File m_velocityFixupFile;
+    float m_globalVelocityPower = 1.0f;
 
     int allocateChannel (int ch, int note);
     int deallocateChannel (int ch, int note);
