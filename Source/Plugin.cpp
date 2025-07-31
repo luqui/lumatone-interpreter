@@ -205,15 +205,15 @@ std::pair<int, float> LumatoneInterpreterProcessor::lumaNoteToMidiNote (int ch, 
     // float b = std::pow (2.0f, 3.0f / 31.0f);
 
     // 31-esque regression
-    float a = 1.11794216f;
-    float b = 1.07109905f;
+    double a = 1.118755;
+    double b = 1.068773;
 
-    float hz = 261.62f * std::pow (a, x) * std::pow (b, y);
+    double hz = 261.62 * std::pow (a, x) * std::pow (b, y);
 
-    float midiNote = 12.0f * std::log2 (hz / 440.0f) + 69.0f;
+    double midiNote = 12.0 * std::log2 (hz / 440.0) + 69.0;
     int midiNoteOut = std::clamp ((int) std::round (midiNote), 0, 127);
-    float bendOut = midiNote - midiNoteOut;
-    return {midiNoteOut, bendOut};
+    double bendOut = midiNote - midiNoteOut;
+    return {midiNoteOut, (float) bendOut};
 }
 
 std::pair<int, int> LumatoneInterpreterProcessor::lumaNoteToLocalCoord (int note) const
@@ -426,7 +426,7 @@ void LumatoneInterpreterProcessor::setGlobalVelocityPower (float power)
 void LumatoneInterpreterProcessor::saveVelocityFixups()
 {
     juce::XmlElement root ("VelocityFixups");
-    
+
     // Save global velocity power setting
     root.setAttribute ("globalVelocityPower", (double) m_globalVelocityPower);
 
@@ -454,7 +454,7 @@ void LumatoneInterpreterProcessor::loadVelocityFixups()
     }
 
     m_velocityFixups.clear();
-    
+
     // Load global velocity power setting
     m_globalVelocityPower = (float) xml->getDoubleAttribute ("globalVelocityPower", 1.0);
 
