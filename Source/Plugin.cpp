@@ -129,7 +129,7 @@ int LumatoneInterpreterProcessor::allocateChannel (int ch, int note)
     // Look for the least recently used free channel
     int channel = -1;
     int lruId = INT_MAX;
-    for (int i = 2; i < 16; ++i) {
+    for (int i = 1; i < 16; ++i) {
         if (m_notesPerChannel[i] == 0) {
             if (m_channelLru[i] < lruId) {
                 lruId = m_channelLru[i];
@@ -146,7 +146,7 @@ int LumatoneInterpreterProcessor::allocateChannel (int ch, int note)
 
     // Otherwise, use the least recently used channel with the fewest notes
     int minNotes = INT_MAX;
-    for (int i = 2; i < 16; ++i) {
+    for (int i = 1; i < 16; ++i) {
         if (m_notesPerChannel[i] < minNotes || (m_notesPerChannel[i] == minNotes && m_channelLru[i] < lruId)) {
             minNotes = m_notesPerChannel[i];
             lruId = m_channelLru[i];
@@ -179,7 +179,6 @@ float LumatoneInterpreterProcessor::velocityFixup (int ch, int note, int vel) co
     if (auto found = m_velocityFixups.find (key); found != m_velocityFixups.end()) {
         float pow = found->second;
         float out = std::pow (vel / 127.0f, pow) * 127.0f;
-        std::cout << "Fixing up velocity from " << vel << " to " << out << " (power: " << pow << ")" << std::endl;
         return out;
     }
 
@@ -190,7 +189,6 @@ std::pair<int, float> LumatoneInterpreterProcessor::lumaNoteToMidiNote (int ch, 
 {
     int x, y;
     std::tie (x, y) = lumaNoteToLocalCoord (note);
-    std::cout << "Coord = ch " << ch << ": " << x << ", " << y << std::endl;
 
     x += 5 * (ch - 2);
     y += 2 * (ch - 2);
