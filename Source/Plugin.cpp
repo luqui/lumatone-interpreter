@@ -6,6 +6,12 @@
 
 LumatoneInterpreterProcessor::LumatoneInterpreterProcessor() : AudioProcessor (getBusesProperties())
 {
+    // Initialize available tuning systems
+    m_availableTunings.push_back (
+        TuningSystem ("31 EDO", std::pow (2.0, 5.0 / 31.0), std::pow (2.0, 3.0 / 31.0), "31-tone equal temperament"));
+    m_availableTunings.push_back (
+        TuningSystem ("31-esque Regression", 1.118755, 1.068773, "Regression-based approximation of 31 EDO"));
+
     // Initialize the velocity fixup file path
     auto appDataDir = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory);
     auto lumatoneDir = appDataDir.getChildFile ("LumatoneInterpreter");
@@ -197,14 +203,10 @@ std::pair<int, float> LumatoneInterpreterProcessor::lumaNoteToMidiNote (int ch, 
     x -= 10;
     y -= 9;
 
-    // This is the tuning computation
-    // 31EDO
-    // float a = std::pow (2.0f, 5.0f / 31.0f);
-    // float b = std::pow (2.0f, 3.0f / 31.0f);
-
-    // 31-esque regression
-    double a = 1.118755;
-    double b = 1.068773;
+    // Use the selected tuning system
+    const auto& tuning = getCurrentTuning();
+    double a = tuning.a;
+    double b = tuning.b;
 
     double hz = 261.62 * std::pow (a, x) * std::pow (b, y);
 
@@ -421,12 +423,23 @@ void LumatoneInterpreterProcessor::setGlobalVelocityPower (float power)
     saveVelocityFixups();
 }
 
+void LumatoneInterpreterProcessor::setCurrentTuningIndex (int index)
+{
+    if (index >= 0 && index < static_cast<int> (m_availableTunings.size())) {
+        m_currentTuningIndex = index;
+        saveVelocityFixups(); // We'll save tuning state along with other settings
+    }
+}
+
 void LumatoneInterpreterProcessor::saveVelocityFixups()
 {
     juce::XmlElement root ("VelocityFixups");
 
     // Save global velocity power setting
     root.setAttribute ("globalVelocityPower", (double) m_globalVelocityPower);
+
+    // Save current tuning index
+    root.setAttribute ("currentTuningIndex", m_currentTuningIndex);
 
     for (const auto& [key, value] : m_velocityFixups) {
         auto* fixupElement = root.createNewChildElement ("Fixup");
@@ -455,6 +468,13 @@ void LumatoneInterpreterProcessor::loadVelocityFixups()
 
     // Load global velocity power setting
     m_globalVelocityPower = (float) xml->getDoubleAttribute ("globalVelocityPower", 1.0);
+
+    // Load current tuning index
+    m_currentTuningIndex = xml->getIntAttribute ("currentTuningIndex", 0);
+    // Ensure the loaded index is valid
+    if (m_currentTuningIndex < 0 || m_currentTuningIndex >= static_cast<int> (m_availableTunings.size())) {
+        m_currentTuningIndex = 0;
+    }
 
     for (auto* fixupElement : xml->getChildIterator()) {
         if (fixupElement->hasTagName ("Fixup")) {

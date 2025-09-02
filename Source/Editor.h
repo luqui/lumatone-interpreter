@@ -46,8 +46,23 @@ public:
         };
         addAndMakeVisible (m_globalVelocityPowerSlider);
 
-        m_globalVelocityPowerLabel.setText ("Global Velocity Power:", juce::dontSendNotification);
+        m_globalVelocityPowerLabel.setText ("Global Velocity Exp:", juce::dontSendNotification);
         m_globalVelocityPowerLabel.attachToComponent (&m_globalVelocityPowerSlider, true);
+
+        // Tuning system selector
+        const auto& tunings = proc.getAvailableTunings();
+        for (size_t i = 0; i < tunings.size(); ++i) {
+            m_tuningSelector.addItem (tunings[i].name, static_cast<int> (i + 1));
+        }
+        m_tuningSelector.setSelectedId (proc.getCurrentTuningIndex() + 1, juce::dontSendNotification);
+        m_tuningSelector.onChange = [this]() {
+            auto& proc = static_cast<LumatoneInterpreterProcessor&> (processor);
+            proc.setCurrentTuningIndex (m_tuningSelector.getSelectedId() - 1);
+        };
+        addAndMakeVisible (m_tuningSelector);
+
+        m_tuningSelectorLabel.setText ("Tuning:", juce::dontSendNotification);
+        m_tuningSelectorLabel.attachToComponent (&m_tuningSelector, true);
 
         startTimerHz (10);
 
@@ -57,9 +72,18 @@ public:
     void resized() override
     {
         auto bounds = getLocalBounds().reduced (8);
+        {
+            auto tuningArea = bounds.removeFromTop (40);
+            m_tuningSelectorLabel.setBounds (tuningArea.removeFromLeft (100));
+            m_tuningSelector.setBounds (tuningArea);
+        }
         m_velocityFixupButton.setBounds (bounds.removeFromTop (40));
         bounds.removeFromTop (8);
-        m_globalVelocityPowerSlider.setBounds (bounds.removeFromTop (30));
+        {
+            auto globalVelocityArea = bounds.removeFromTop (30);
+            m_globalVelocityPowerLabel.setBounds (globalVelocityArea.removeFromLeft (100));
+            m_globalVelocityPowerSlider.setBounds (globalVelocityArea);
+        }
         bounds.removeFromTop (8);
         m_activeVoicesLabel.setBounds (bounds);
     }
@@ -107,5 +131,7 @@ private:
     juce::TextButton m_velocityFixupButton;
     juce::Slider m_globalVelocityPowerSlider;
     juce::Label m_globalVelocityPowerLabel;
+    juce::ComboBox m_tuningSelector;
+    juce::Label m_tuningSelectorLabel;
     std::unique_ptr<VelocityFixupWindow> m_velocityFixupWindow;
 };

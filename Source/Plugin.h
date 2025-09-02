@@ -15,6 +15,19 @@ struct hash<std::pair<T, U>>
 // Forward declaration for the velocity fixup editor
 class VelocityFixupEditor;
 
+// Tuning system structure
+struct TuningSystem
+{
+    juce::String name;
+    double a; // Horizontal interval
+    double b; // Vertical interval
+    juce::String description;
+
+    TuningSystem (const juce::String& n, double aVal, double bVal, const juce::String& desc = "")
+    : name (n), a (aVal), b (bVal), description (desc)
+    {}
+};
+
 /** As the name suggest, this class does the actual audio processing. */
 class LumatoneInterpreterProcessor : public juce::AudioProcessor
 {
@@ -61,6 +74,12 @@ public:
     float getGlobalVelocityPower() const { return m_globalVelocityPower; }
     void setGlobalVelocityPower (float power);
 
+    // Tuning system functionality
+    const std::vector<TuningSystem>& getAvailableTunings() const { return m_availableTunings; }
+    int getCurrentTuningIndex() const { return m_currentTuningIndex; }
+    void setCurrentTuningIndex (int index);
+    const TuningSystem& getCurrentTuning() const { return m_availableTunings[m_currentTuningIndex]; }
+
 private:
     static BusesProperties getBusesProperties();
 
@@ -78,6 +97,10 @@ private:
     std::pair<int, int> m_mostRecentKey {0, 0};
     juce::File m_velocityFixupFile;
     float m_globalVelocityPower = 1.0f;
+
+    // Tuning system data
+    std::vector<TuningSystem> m_availableTunings;
+    int m_currentTuningIndex = 0;
 
     int allocateChannel (int ch, int note);
     int deallocateChannel (int ch, int note);
